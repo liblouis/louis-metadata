@@ -29,3 +29,36 @@ pub fn search(contents: &str) -> HashMap<&str, &str> {
     metadata
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use maplit::hashmap;
+
+    #[test]
+    fn plain() {
+        let contents = "\
+#+foo: bar
+#+hehe:hoho
+#+foo-bar: yes
+#+foo_bar: no
+#-contracted: full";
+
+	let map = hashmap!{
+	    "foo" => "bar",
+	    "hehe" => "hoho",
+	    "foo-bar" => "yes",
+	    "contracted" => "full",
+	};
+        assert_eq!(map, search(contents));
+    }
+
+    #[test]
+    fn faulty() {
+        let contents = "\
+#+: no
+#+foo-bar:";
+
+	let map = hashmap!{};
+        assert_eq!(map, search(contents));
+    }
+}
