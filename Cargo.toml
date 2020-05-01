@@ -1,5 +1,5 @@
 [package]
-name = "louis-grep"
+name = "louis-metadata"
 version = "0.1.0"
 authors = ["Christian Egli <christian.egli@sbs.ch>"]
 edition = "2018"

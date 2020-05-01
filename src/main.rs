@@ -11,7 +11,7 @@ fn main() {
 
     let filename = args[1].clone();
     
-    if let Err(e) = louis_grep::run(filename) {
+    if let Err(e) = louis_metadata::run(filename) {
         println!("Application error: {}", e);
         process::exit(1);
     }}
