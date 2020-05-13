@@ -1,25 +1,26 @@
 use regex::Regex;
 use std::error::Error;
 use std::fs;
-use std::path::Path;
+use std::io;
 use std::path::PathBuf;
 
 use std::collections::HashMap;
 
 pub fn run(path: String) -> Result<(), Box<dyn Error>> {
-    if Path::new(&path).is_dir() {
-        for (path, metadata) in index_path(&path) {
-            println!("== {}", path.to_str().unwrap());
-            for (k, v) in metadata {
-                println!("{}: {}", k, v);
-            }
+    for (path, metadata) in index_path(&path)? {
+        println!("== {}", path.to_str().unwrap());
+        for (k, v) in metadata {
+            println!("{}: {}", k, v);
         }
     }
 
     Ok(())
 }
 
-pub fn analyze_table(contents: &str) -> HashMap<String, String> {
+type Metadata = HashMap<String, String>;
+type MetadataTable = HashMap<PathBuf, Metadata>;
+
+pub fn analyze_table(contents: &str) -> Metadata {
     let re = Regex::new(r"^#(\+|-)(?P<key>[-[:lower:]]+):\s*(?P<value>.+)$").unwrap();
 
     let mut metadata = HashMap::new();
@@ -34,11 +35,11 @@ pub fn analyze_table(contents: &str) -> HashMap<String, String> {
     metadata
 }
 
-pub fn index_path(path: &str) -> HashMap<PathBuf, HashMap<String, String>> {
+pub fn index_path(path: &str) -> io::Result<MetadataTable> {
     let mut metadata_index = HashMap::new();
 
-    for entry in fs::read_dir(path).unwrap() {
-        let path = entry.unwrap().path();
+    for entry in fs::read_dir(path)? {
+        let path = entry?.path();
         if path.is_file() {
             // ignore files that aren't utf-8
             if let Ok(content) = fs::read_to_string(&path) {
@@ -49,7 +50,7 @@ pub fn index_path(path: &str) -> HashMap<PathBuf, HashMap<String, String>> {
             }
         }
     }
-    metadata_index
+    Ok(metadata_index)
 }
 
 #[cfg(test)]
