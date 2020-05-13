@@ -1,15 +1,18 @@
 use regex::Regex;
 use std::error::Error;
 use std::fs;
+use std::path::Path;
 use std::path::PathBuf;
 
 use std::collections::HashMap;
 
 pub fn run(path: String) -> Result<(), Box<dyn Error>> {
-    for (path, metadata) in index_path(&path) {
-        println!("== {}", path.to_str().unwrap());
-        for (k, v) in metadata {
-            println!("{}: {}", k, v);
+    if Path::new(&path).is_dir() {
+        for (path, metadata) in index_path(&path) {
+            println!("== {}", path.to_str().unwrap());
+            for (k, v) in metadata {
+                println!("{}: {}", k, v);
+            }
         }
     }
 
