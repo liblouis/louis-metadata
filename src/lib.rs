@@ -4,62 +4,68 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
-use std::collections::HashMap;
+#[derive(Debug, PartialEq)]
+pub struct EntityAttributeValue {
+    entity: PathBuf,
+    attribute: String,
+    value: String,
+}
 
 pub fn run(path: String) -> Result<(), Box<dyn Error>> {
-    for (path, metadata) in index_path(&path)? {
-        println!("== {}", path.to_str().unwrap());
-        for (k, v) in metadata {
-            println!("{}: {}", k, v);
-        }
+    for eav in index_path(&path)? {
+        let EntityAttributeValue {
+            entity,
+            attribute,
+            value,
+        } = eav;
+        println!("{}, {}: {}", entity.to_str().unwrap(), attribute, value);
     }
 
     Ok(())
 }
 
-type Metadata = HashMap<String, String>;
-type MetadataTable = HashMap<PathBuf, Metadata>;
-
-pub fn analyze_table(contents: &str) -> Metadata {
+pub fn analyze_table(entity: PathBuf, contents: &str) -> Vec<EntityAttributeValue> {
     let re = Regex::new(r"^#(\+|-)(?P<key>[-[:lower:]]+):\s*(?P<value>.+)$").unwrap();
 
-    let mut metadata = HashMap::new();
+    let mut metadata = Vec::new();
 
     for line in contents.lines() {
         if let Some(caps) = re.captures(line) {
-            let k = caps.name("key").unwrap().as_str().to_string();
-            let v = caps.name("value").unwrap().as_str().to_string();
-            metadata.insert(k, v);
+            let entity = entity.clone();
+            let attribute = caps.name("key").unwrap().as_str().to_string();
+            let value = caps.name("value").unwrap().as_str().to_string();
+            metadata.push(EntityAttributeValue {
+                entity,
+                attribute,
+                value,
+            })
         }
     }
     metadata
 }
 
-pub fn index_path(path: &str) -> io::Result<MetadataTable> {
-    let mut metadata_index = HashMap::new();
+pub fn index_path(path: &str) -> io::Result<Vec<EntityAttributeValue>> {
+    let mut metadata = Vec::new();
 
     for entry in fs::read_dir(path)? {
         let path = entry?.path();
         if path.is_file() {
             // ignore files that aren't utf-8
             if let Ok(content) = fs::read_to_string(&path) {
-                let metadata = analyze_table(&content);
-                if !metadata.is_empty() {
-                    metadata_index.insert(path, metadata);
-                }
+                metadata.extend(analyze_table(path, &content));
             }
         }
     }
-    Ok(metadata_index)
+    Ok(metadata)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use maplit::hashmap;
 
     #[test]
     fn plain() {
+        let path = PathBuf::from("/foo/bar");
         let contents = "\
 #+foo: bar
 #+hehe:hoho
@@ -67,22 +73,39 @@ mod tests {
 #+foo_bar: no
 #-contracted: full";
 
-        let map = hashmap! {
-            String::from("foo") => String::from("bar"),
-            String::from("hehe") => String::from("hoho"),
-            String::from("foo-bar") => String::from("yes"),
-            String::from("contracted") => String::from("full"),
-        };
-        assert_eq!(map, analyze_table(contents));
+        let index = vec![
+            EntityAttributeValue {
+                entity: path.clone(),
+                attribute: String::from("foo"),
+                value: String::from("bar"),
+            },
+            EntityAttributeValue {
+                entity: path.clone(),
+                attribute: String::from("hehe"),
+                value: String::from("hoho"),
+            },
+            EntityAttributeValue {
+                entity: path.clone(),
+                attribute: String::from("foo-bar"),
+                value: String::from("yes"),
+            },
+            EntityAttributeValue {
+                entity: path.clone(),
+                attribute: String::from("contracted"),
+                value: String::from("full"),
+            },
+        ];
+        assert_eq!(index, analyze_table(path, contents));
     }
 
     #[test]
     fn faulty() {
+        let path = PathBuf::from("/foo/bar");
         let contents = "\
 #+: no
 #+foo-bar:";
 
-        let map = hashmap! {};
-        assert_eq!(map, analyze_table(contents));
+        let index: Vec<EntityAttributeValue> = vec![];
+        assert_eq!(index, analyze_table(path, contents));
     }
 }
